@@ -1,6 +1,9 @@
 class Layer:
     def forward(self, x):
         raise NotImplementedError("Forward pass not implemented.")
+    
+    def backward(self, x):
+        raise NotImplementedError("Backward pass not implemented.")
 
     def __call__(self, x):
         return self.forward(x)
