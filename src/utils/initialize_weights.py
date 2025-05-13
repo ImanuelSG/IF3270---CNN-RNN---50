@@ -1,6 +1,6 @@
 import torch.nn.init as init
 from utils.autodiff import Value
-def initialize_weights(self, weight, initializer='random'):    
+def initialize_weights(self, weight, initializer='normal'):    
         if initializer == 'uniform':
             init.uniform_(weight, a=-0.1, b=0.1)
         elif initializer == 'normal':
@@ -13,6 +13,12 @@ def initialize_weights(self, weight, initializer='random'):
             init.kaiming_normal_(weight, nonlinearity='relu')  # He normal
         elif initializer == 'he_uniform':
             init.kaiming_uniform_(weight, nonlinearity='relu')  # He uniform
+        elif initializer == 'orthogonal':
+            init.orthogonal_(weight)
+        elif initializer == 'zeros':
+            init.zeros_(weight)
+        elif initializer == 'ones':
+            init.ones_(weight)
         else:
             raise ValueError(f"Unknown initialization method: {initializer}")
 
