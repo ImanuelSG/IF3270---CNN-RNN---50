@@ -24,6 +24,8 @@ def initialize_weights(weight, initializer='normal', seed=None, wrap=True):
         init.zeros_(weight)
     elif initializer == 'ones':
         init.ones_(weight)
+    elif initializer == 'custom':
+        weigth = weight
     else:
         raise ValueError(f"Unknown initialization method: {initializer}")
 
