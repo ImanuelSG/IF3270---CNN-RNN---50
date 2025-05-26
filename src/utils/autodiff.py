@@ -34,6 +34,18 @@ class Value:
 
         out._backward = _backward
         return out
+    
+    def __getitem__(self, idx):
+        sliced = self.data[idx]
+
+        out = Value(sliced, requires_grad=self.requires_grad, _children=(self,), _op="slice")
+
+        def _backward():
+            if self.requires_grad:
+                self.grad[idx] += out.grad
+
+        out._backward = _backward
+        return out
 
     def __add__(self, other):
         other = other if isinstance(other, Value) else Value(other)

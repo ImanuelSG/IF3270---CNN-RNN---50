@@ -1,6 +1,6 @@
 import torch.nn.init as init
-from utils.autodiff import Value
-def initialize_weights(self, weight, initializer='normal'):    
+from src.utils.autodiff import Value
+def initialize_weights(weight, initializer='normal'):    
         if initializer == 'uniform':
             init.uniform_(weight, a=-0.1, b=0.1)
         elif initializer == 'normal':
@@ -19,6 +19,8 @@ def initialize_weights(self, weight, initializer='normal'):
             init.zeros_(weight)
         elif initializer == 'ones':
             init.ones_(weight)
+        elif initializer == 'custom':
+            weigth = weight
         else:
             raise ValueError(f"Unknown initialization method: {initializer}")
 
