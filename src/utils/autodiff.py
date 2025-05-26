@@ -255,6 +255,33 @@ class Value:
         out._backward = _backward
         return out
     
+    @staticmethod
+    def stack(values, dim=0):
+        """
+        Stack a list of Value instances along a specified dimension.
+        This is similar to torch.stack but works with Value objects.
+        """
+        assert isinstance(dim, int) and dim >= 0, "dim must be a non-negative integer"
+        assert len(values) > 0, "values must not be empty"
+        assert all(isinstance(v, Value) for v in values), "All elements must be Value instances"
+
+        data_stack = torch.stack([v.data for v in values], dim=dim)
+        requires_grad = any(v.requires_grad for v in values)
+        out = Value(data_stack, requires_grad=requires_grad, _children=tuple(values), _op=f"stack_dim{dim}")
+
+        def _backward():
+            if not out.requires_grad:
+                return
+            grads = torch.unbind(out.grad, dim=dim)
+            for v, g in zip(values, grads):
+                if v.requires_grad:
+                    if v.grad is None:
+                        v.grad = torch.zeros_like(v.data)
+                    v.grad += g
+
+        out._backward = _backward
+        return out
+
     def backward(self):
         assert self.requires_grad, "Called backward on a Value that does not require grad"
 
