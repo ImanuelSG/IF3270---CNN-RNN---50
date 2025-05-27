@@ -31,13 +31,11 @@ class RNN(Model):
             
     def predict(self, x):
         outputs = []
-        print(f"Predicting with batch size: {self.batch_size}, input shape: {x.shape}")
+        # print(f"Predicting with batch size: {self.batch_size}, sequance length: {x.shape[1] if len(x.shape) > 1 else 1}, feature size: {x.shape[2] if len(x.shape) > 2 else 1}")
         for batch_X in self.batch_generator(x, self.batch_size):
             if len(self.layers) > 0 and isinstance(self.layers[0], EmbeddingLayer):
-                print("Using EmbeddingLayer, converting indices to long tensor")
                 batch_X_value = torch.tensor(batch_X, dtype=torch.long)
             else:
-                print("Using non-EmbeddingLayer, converting to float tensor")
                 batch_tensor = torch.tensor(batch_X, dtype=torch.float32)
                 batch_X_value = Value(batch_tensor, requires_grad=False)
             out = self.forward(batch_X_value)

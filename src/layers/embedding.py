@@ -7,11 +7,11 @@ class EmbeddingLayer(Layer):
     def __init__(self, vocab_size, embedding_dim, initializer='normal'):
         self.vocab_size = vocab_size
         self.embedding_dim = embedding_dim
-        print(f"Initializing EmbeddingLayer with vocab_size={vocab_size}, embedding_dim={embedding_dim}, initializer={initializer}")
+        # print(f"Initializing EmbeddingLayer with vocab_size={vocab_size}, embedding_dim={embedding_dim}, initializer={initializer}")
         self.weights = initialize_weights(torch.empty(vocab_size, embedding_dim), initializer)
     
     def forward(self, indices: torch.Tensor):
-        print(f"Forward pass in EmbeddingLayer with indices={indices}, shape={indices.shape}, data type={indices.dtype}")
+        # print(f"Forward pass in EmbeddingLayer with shape={indices.shape}, data type={indices.dtype}")
         out = Value(self.weights.data[indices], requires_grad=self.weights.requires_grad)
 
         # def _backward():
