@@ -1,6 +1,6 @@
 import torch
 import torch.nn.init as init
-from src.utils.autodiff import Value
+from utils.autodiff import Value
 
 def initialize_weights(weight, initializer='normal', seed=None, wrap=True):   
     if seed is not None:

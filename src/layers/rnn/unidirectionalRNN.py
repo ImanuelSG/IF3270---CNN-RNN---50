@@ -47,6 +47,7 @@ class UnidirectionalRNN(Layer):
         # print(f"Initial hidden state h0 initialized with shape: {self.h0.data.shape}")
 
     def forward(self, x: Value):
+        # print(f"Forward pass in UnidirectionalRNN with input shape: {x.data.shape}")
         batch_size, seq_len, feature_size = x.data.shape
         # print(f"Forward pass with input shape: {x.data.shape}, batch_size: {batch_size}, seq_len: {seq_len}, feature_size: {feature_size}")
 
@@ -68,7 +69,8 @@ class UnidirectionalRNN(Layer):
             self.outputs.append(h)
 
         if self.return_sequences:
-            return Value.cat(self.outputs, 1)  # (batch_size, seq_len, units)
+            unsqueezed = [v.unsqueeze(1) for v in self.outputs]
+            return Value.cat(unsqueezed, dim=1) # (batch_size, seq_len, units)
         else:
             return self.outputs[-1]  # (batch_size, units)
     

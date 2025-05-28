@@ -1,4 +1,4 @@
-from src.utils.autodiff import Value
+from utils.autodiff import Value
 class Layer:
     def forward(self, x : Value):
         raise NotImplementedError("Forward pass not implemented.")
