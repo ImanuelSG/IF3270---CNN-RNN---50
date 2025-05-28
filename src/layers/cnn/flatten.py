@@ -1,6 +1,5 @@
 from src.layers.layer import Layer
 from src.utils.autodiff import Value
-import torch
 
 
 class Flatten(Layer):

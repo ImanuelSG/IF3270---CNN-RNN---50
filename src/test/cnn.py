@@ -11,7 +11,7 @@ import sys
 
 model = CNNModel(loss_fn=CategoricalCrossEntropyLoss())
 layer1 = Conv2D(filters=2, kernel_size=2, padding=0, activation='relu')
-layer2 = Pooling(pool_size=3, pool_type='max', padding=0, strides=1)
+layer2 = Pooling(pool_size=3, pool_type='global', padding=0, strides=1)
 layer3 = Flatten()
 layer4 = DenseLayer(activation='relu', output_shape=2)
 layer5 = DenseLayer(activation='softmax', output_shape=5)

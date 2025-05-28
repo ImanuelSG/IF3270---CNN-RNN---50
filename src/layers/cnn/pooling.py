@@ -36,6 +36,7 @@ class Pooling(Layer):
         return Value(padded, requires_grad=x.requires_grad, _children=(x,), _op='pad')
 
     def _max_pooling(self, x_padded, B, C, H_out, W_out):
+        
         output = [[[[
             Value(float('-inf')) for _ in range(W_out)
         ] for _ in range(H_out)] for _ in range(C)] for _ in range(B)]
@@ -52,61 +53,64 @@ class Pooling(Layer):
                         h_end = h_start + self.pool_size[0]
                         w_end = w_start + self.pool_size[1]
 
-                        max_val = Value(float('-inf'))
+                        max_val = Value(float('-inf'), )
                         max_idx = (0, 0)
                         for i in range(h_start, h_end):
                             for j in range(w_start, w_end):
-                                val = Value(x_padded.data[b, c, i, j])
+                                val = x_padded[b, c, i, j]
                                 if val.data > max_val.data:
                                     max_val = val
                                     max_idx = (i, j)
                         output[b][c][oh][ow] = max_val
                         self.max_indices[b][c][oh][ow] = max_idx
 
-        # Convert nested list of Values to tensor
-        result_tensor = torch.stack([
-            torch.stack([
-                torch.stack([
-                    torch.stack([v.data for v in row], dim=0)
-                    for row in channel
-                ], dim=0)
-                for channel in batch
-            ], dim=0)
-            for batch in output
-        ], dim=0)
+        final_output = []
+        for b in range(B):
+            for c in range(C):
+                for oh in range(H_out):
+                    for ow in range(W_out):
+                        final_output.append(output[b][c][oh][ow])
 
-        out = Value(result_tensor, requires_grad=x_padded.requires_grad, _children=(x_padded,), _op='max_pool')
+
+        out_tensor = torch.stack([v.data for v in final_output])
+        shape = (B, C, H_out, W_out)
+        out_tensor = out_tensor.view(shape)
+
+        out = Value(out_tensor, requires_grad=x_padded.requires_grad, _children=tuple(final_output), _op='max_pool')
 
         def _backward():
-            if x_padded.requires_grad:
-                grad_input = torch.zeros_like(x_padded.data)
-                for b in range(B):
-                    for c in range(C):
-                        for oh in range(H_out):
-                            for ow in range(W_out):
-                                i, j = self.max_indices[b][c][oh][ow]
-                                grad_input[b, c, i, j] += out.grad[b, c, oh, ow]
-                x_padded.grad += grad_input
+            if out.grad is None:
+                return
+            
+            grad_tensor = out.grad
+            idx = 0
+            for b in range(B):
+                for c in range(C):
+                    for oh in range(H_out):
+                        for ow in range(W_out):
+                           
+                            final_output[idx].grad += grad_tensor[b, c, oh, ow]
+                            idx += 1
 
         out._backward = _backward
         return out
 
     def forward(self, x):
+      
         self.input_shape = x.data.shape
         B, C, H, W = self.input_shape
 
         if self.pool_type.startswith('global'):
             # Global pooling over full H, W
             if 'max' in self.pool_type:
-                # Global max pooling uses _max_pooling logic but on full input
-                # We'll implement similarly here:
+                # Global max pooling
                 output = [[[
-                    [Value(float('-inf')) for _ in range(1)]
+                    [Value(float('-inf'))]
                 ] for _ in range(C)] for _ in range(B)]
 
                 self.max_indices = [[[
-                    [None] for _ in range(C)
-                ] for _ in range(B)]]
+                    [None]
+                ] for _ in range(C)] for _ in range(B)]
 
                 for b in range(B):
                     for c in range(C):
@@ -114,58 +118,69 @@ class Pooling(Layer):
                         max_idx = (0, 0)
                         for i in range(H):
                             for j in range(W):
-                                val = Value(x.data[b, c, i, j])
+                                val = x[b, c, i, j]
                                 if val.data > max_val.data:
                                     max_val = val
                                     max_idx = (i, j)
                         output[b][c][0][0] = max_val
                         self.max_indices[b][c][0][0] = max_idx
 
-                result_tensor = torch.stack([
-                    torch.stack([
-                        torch.stack([v[0][0].data for v in batch_channel], dim=0)
-                        for batch_channel in batch
-                    ], dim=0)
-                    for batch in output
-                ], dim=0)
+                # Flatten output for stacking
+                final_output = []
+                for b in range(B):
+                    for c in range(C):
+                        final_output.append(output[b][c][0][0])
 
-                out = Value(result_tensor, requires_grad=x.requires_grad, _children=(x,), _op='global_max_pool')
+                out_tensor = torch.stack([v.data for v in final_output])
+                shape = (B, C, 1, 1)
+                out_tensor = out_tensor.view(shape)
+
+                out = Value(out_tensor, requires_grad=x.requires_grad, _children=tuple(final_output), _op='global_max_pool')
 
                 def _backward():
-                    if x.requires_grad:
-                        grad_input = torch.zeros_like(x.data)
-                        for b in range(B):
-                            for c in range(C):
-                                i, j = self.max_indices[b][c][0][0]
-                                grad_input[b, c, i, j] += out.grad[b, c, 0, 0]
-                        x.grad += grad_input
+                    if out.grad is None:
+                        return
+                    
+                    grad_tensor = out.grad
+                    idx = 0
+                    for b in range(B):
+                        for c in range(C):
+                            final_output[idx].grad += grad_tensor[b, c, 0, 0]
+                            idx += 1
 
                 out._backward = _backward
                 return out
 
             else:
-                # Global average pooling using native autodiff:
                 output_vals = []
                 for b in range(B):
-                    batch_vals = []
                     for c in range(C):
                         total = Value(0.0)
                         for i in range(H):
                             for j in range(W):
-                                total += x[b, c, i, j]  # Value
+                                total += x[b, c, i, j]
                         avg = total / Value(H * W)
-                        batch_vals.append([[avg]])
-                    output_vals.append(batch_vals)
+                        output_vals.append(avg)
 
-                result_tensor = torch.stack([
-                    torch.stack([
-                        torch.stack([v[0][0].data for v in batch_channel], dim=0)
-                        for batch_channel in batch
-                    ], dim=0)
-                    for batch in output_vals
-                ], dim=0)
+                out_tensor = torch.stack([v.data for v in output_vals])
+                shape = (B, C, 1, 1)
+                out_tensor = out_tensor.view(shape)
 
-                return Value(result_tensor, requires_grad=x.requires_grad, _children=(x,), _op='global_avg_pool')
+                out = Value(out_tensor, requires_grad=x.requires_grad, _children=tuple(output_vals), _op='global_avg_pool')
+
+                def _backward():
+                    if out.grad is None:
+                        return
+                    
+                    grad_tensor = out.grad
+                    idx = 0
+                    for b in range(B):
+                        for c in range(C):
+                            output_vals[idx].grad += grad_tensor[b, c, 0, 0]
+                            idx += 1
+
+                out._backward = _backward
+                return out
 
         else:
             x_padded = self._pad_input(x)
@@ -176,14 +191,11 @@ class Pooling(Layer):
             if self.pool_type == 'max':
                 return self._max_pooling(x_padded, B, C, H_out, W_out)
 
-            else:  # avg pooling via native autodiff
+            else:  # avg pooling
                 output_vals = []
                 for b in range(B):
-                    batch_vals = []
                     for c in range(C):
-                        channel_vals = []
                         for oh in range(H_out):
-                            row_vals = []
                             for ow in range(W_out):
                                 h_start = oh * self.strides[0]
                                 w_start = ow * self.strides[1]
@@ -193,25 +205,31 @@ class Pooling(Layer):
                                 total = Value(0.0)
                                 for i in range(h_start, h_end):
                                     for j in range(w_start, w_end):
-                                        total += x_padded[b, c, i, j]  # Value addition
+                                        total += x_padded[b, c, i, j]
                                 avg = total / Value(self.pool_size[0] * self.pool_size[1])
-                                row_vals.append(avg)
-                            channel_vals.append(row_vals)
-                        batch_vals.append(channel_vals)
-                    output_vals.append(batch_vals)
+                                output_vals.append(avg)
 
-                result_tensor = torch.stack([
-                    torch.stack([
-                        torch.stack([
-                            torch.stack([v.data for v in row], dim=0)
-                            for row in channel
-                        ], dim=0)
-                        for channel in batch
-                    ], dim=0)
-                    for batch in output_vals
-                ], dim=0)
+                out_tensor = torch.stack([v.data for v in output_vals])
+                shape = (B, C, H_out, W_out)
+                out_tensor = out_tensor.view(shape)
 
-                return Value(result_tensor, requires_grad=x.requires_grad, _children=(x,), _op='avg_pool')
+                out = Value(out_tensor, requires_grad=x.requires_grad, _children=tuple(output_vals), _op='avg_pool')
+
+                def _backward():
+                    if out.grad is None:
+                        return
+                    
+                    grad_tensor = out.grad
+                    idx = 0
+                    for b in range(B):
+                        for c in range(C):
+                            for oh in range(H_out):
+                                for ow in range(W_out):
+                                    output_vals[idx].grad += grad_tensor[b, c, oh, ow]
+                                    idx += 1
+
+                out._backward = _backward
+                return out
     
     def get_parameters(self):
         return []

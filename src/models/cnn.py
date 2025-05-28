@@ -78,14 +78,29 @@ class CNNModel(Model):
                 loss.backward()
                 total_loss += loss.data.item()
 
-                # SGD update
                 for layer in self.layers:
                     for param in layer.get_parameters():
                         if param.requires_grad and param.grad is not None:
-                            print(f"Updated param: {param.data}")
-                            param.data -= self.lr * param.grad
-                            
-                            print(param.grad)
+                            if self.optimizer == "sgd":
+                                param.data -= self.lr * param.grad
+                            elif self.optimizer == "adam":
+                                state = self.opt_state[param]
+                                state['t'] += 1
+                                t = state['t']
+
+                                # Update biased first moment estimate
+                                state['m'] = 0.9 * state['m'] + 0.1 * param.grad
+                                # Update biased second raw moment estimate
+                                state['v'] = 0.999 * state['v'] + 0.001 * (param.grad ** 2)
+
+                                # Compute bias-corrected first and second moment
+                                m_hat = state['m'] / (1 - 0.9 ** t)
+                                v_hat = state['v'] / (1 - 0.999 ** t)
+
+                                # Update parameters
+                                param.data -= self.lr * m_hat / (torch.sqrt(v_hat) + 1e-8)
+
+                            # Clear gradients
                             param.grad = torch.zeros_like(param.grad)
                             
 
@@ -100,3 +115,5 @@ class CNNModel(Model):
         x_val = Value(X, requires_grad=False)
         y_pred = self.forward(x_val)
         return y_pred.data
+    
+    # def load_weights

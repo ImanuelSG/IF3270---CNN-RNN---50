@@ -20,7 +20,6 @@ class Conv2D(Layer):
         self.weights = None
         self.bias = None
         self.input_channels = None
-        self.initialized = False
     
     def _initialize_parameters(self, input_channels):
         if self.initialized:
@@ -35,8 +34,7 @@ class Conv2D(Layer):
         if self.use_bias:
             bias_tensor = torch.empty(self.filters, dtype=torch.float32)
             self.bias = initialize_weights(bias_tensor, self.bias_initializer)
-        
-        self.initialized = True
+
     
     def _calculate_output_size(self, input_height, input_width):
         output_height = (input_height + 2 * self.padding[0] - self.kernel_size[0]) // self.strides[0] + 1
@@ -55,7 +53,7 @@ class Conv2D(Layer):
     def forward(self, x : Value):
         batch_size, input_channels, input_height, input_width = x.data.shape
         
-        if not self.initialized:
+        if self.weights is None or self.bias is None:
             self._initialize_parameters(input_channels)
         
         x_padded = self._pad_input(x) if any(self.padding) else x
@@ -79,16 +77,11 @@ class Conv2D(Layer):
 
                         conv_sum = Value(0.0)
                         for c in range(input_channels):
-                
                             input_patch = x_padded[b][c][h_start:h_end, w_start:w_end]
                             kernel_patch = self.weights[f][c]
-                          
-
-                            conv_sum += (input_patch * kernel_patch).sum()
-                        
+                            conv_sum = conv_sum + (input_patch * kernel_patch).sum()
                         if self.use_bias:
                             conv_sum += self.bias[f]
-
                         row_out.append(conv_sum)
                     filter_out.append(row_out)
                 batch_out.append(filter_out)
@@ -100,12 +93,38 @@ class Conv2D(Layer):
                 for i in range(output_height):
                     for j in range(output_width):
                         final_output.append(output[b][f][i][j])
+        
+        # def print_child(v, max_depth=3):
+        #     if max_depth < 0:
+        #         return
+        #     if (v._prev is not None):
+        #         print(f"Child: {v._prev}, Op: {v._op}, Data: {v.data} at depth {max_depth}")
+        #         for child in v._prev:
+        #             print_child(child, max_depth - 1)
+        
+        # for v in final_output:
+        #     print_child(v)
 
         out_tensor = torch.stack([v.data for v in final_output])
         shape = (batch_size, self.filters, output_height, output_width)
         out_tensor = out_tensor.view(shape)
 
         out = Value(out_tensor, requires_grad=True, _children=tuple(final_output), _op="conv2d_output")
+
+        def _backward():
+            if out.grad is None:
+                return
+            grad_tensor = out.grad
+            idx = 0
+            for b in range(batch_size):
+                for f in range(self.filters):
+                    for i in range(output_height):
+                        for j in range(output_width):
+                            final_output[idx].grad += grad_tensor[b, f, i, j]
+                            idx += 1
+
+        out._backward = _backward
+
 
         if self.activation:
             return getattr(out, self.activation)()

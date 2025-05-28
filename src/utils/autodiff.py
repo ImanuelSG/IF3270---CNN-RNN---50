@@ -37,12 +37,18 @@ class Value:
     
     def __getitem__(self, idx):
         sliced = self.data[idx]
-
         out = Value(sliced, requires_grad=self.requires_grad, _children=(self,), _op="slice")
 
         def _backward():
             if self.requires_grad:
-                self.grad[idx] += out.grad
+                # Use `index_add_` if possible for better safety
+                if isinstance(idx, (int, slice, tuple, torch.Tensor)):
+                    # Create a zero tensor and scatter the gradient into the right places
+                    grad = torch.zeros_like(self.data)
+                    grad[idx] = out.grad
+                    self.grad += grad
+                else:
+                    raise TypeError(f"Unsupported index type: {type(idx)}")
 
         out._backward = _backward
         return out
@@ -63,7 +69,7 @@ class Value:
     def __mul__(self, other):
         other = other if isinstance(other, Value) else Value(other)
         out = Value(self.data * other.data, requires_grad=self.requires_grad or other.requires_grad, _children=(self, other), _op="*")
-
+        
         def _backward():
             if self.requires_grad:
                 self.grad += self._reduce_grad(other.data * out.grad, self.data.shape)
@@ -282,6 +288,7 @@ class Value:
 
         self.grad = torch.ones_like(self.data)
         for v in reversed(topo):
+            
             v._backward()
 
     def __neg__(self):
@@ -314,3 +321,101 @@ class Value:
                 grad = grad.sum(dim=axis, keepdim=True)
 
         return grad
+    
+    def stack(values, dim=0):
+        """Stack a list of Value objects along a new dimension"""
+        if not values:
+            raise ValueError("Cannot stack empty list")
+        
+        # Extract data from all values
+        data_list = [v.data for v in values]
+        stacked_data = torch.stack(data_list, dim=dim)
+        
+        # Check if any value requires grad
+        requires_grad = any(v.requires_grad for v in values)
+        
+        out = Value(stacked_data, requires_grad=requires_grad, _children=tuple(values), _op="stack")
+        
+        def _backward():
+            # Distribute gradients back to individual values
+            for i, v in enumerate(values):
+                if v.requires_grad:
+                    if v.grad is None:
+                        v.grad = torch.zeros_like(v.data)
+                    # Extract the gradient slice for this value
+                    if dim == 0:
+                        v.grad += out.grad[i]
+                    elif dim == 1:
+                        v.grad += out.grad[:, i]
+                    elif dim == 2:
+                        v.grad += out.grad[:, :, i]
+                    elif dim == 3:
+                        v.grad += out.grad[:, :, :, i]
+                    else:
+                        # For higher dimensions, use indexing
+                        slices = [slice(None)] * out.grad.ndim
+                        slices[dim] = i
+                        v.grad += out.grad[tuple(slices)]
+        
+        out._backward = _backward
+        return out
+
+    def reshape(self, *shape):
+        """Reshape the tensor while preserving gradients"""
+        out = Value(self.data.reshape(*shape), requires_grad=self.requires_grad, _children=(self,), _op="reshape")
+        
+        def _backward():
+            if self.requires_grad:
+                if self.grad is None:
+                    self.grad = torch.zeros_like(self.data)
+                self.grad += out.grad.reshape(self.data.shape)
+        
+        out._backward = _backward
+        return out
+
+    def view(self, *shape):
+        """Alias for reshape"""
+        return self.reshape(*shape)
+
+    def flatten(self, start_dim=0, end_dim=-1):
+        """Flatten tensor dimensions"""
+        out = Value(torch.flatten(self.data, start_dim, end_dim), 
+                    requires_grad=self.requires_grad, _children=(self,), _op="flatten")
+        
+        def _backward():
+            if self.requires_grad:
+                if self.grad is None:
+                    self.grad = torch.zeros_like(self.data)
+                self.grad += out.grad.reshape(self.data.shape)
+        
+        out._backward = _backward
+        return out
+
+    def permute(self, *dims):
+        """Permute the dimensions of the tensor"""
+        out = Value(self.data.permute(*dims), requires_grad=self.requires_grad, _children=(self,), _op="permute")
+        
+        def _backward():
+            if self.requires_grad:
+                if self.grad is None:
+                    self.grad = torch.zeros_like(self.data)
+                # Inverse permutation
+                inv_dims = [0] * len(dims)
+                for i, d in enumerate(dims):
+                    inv_dims[d] = i
+                self.grad += out.grad.permute(*inv_dims)
+        
+        out._backward = _backward
+        return out
+
+    # Also add this method to handle proper gradient initialization
+    def zero_grad(self):
+        """Zero the gradient of this Value"""
+        if self.requires_grad:
+            self.grad = torch.zeros_like(self.data)
+
+    # Add these as static/class methods to Value class
+    @staticmethod
+    def stack_values(values, dim=0):
+        """Static method version of stack"""
+        return stack(values, dim)
