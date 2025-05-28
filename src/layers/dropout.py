@@ -1,9 +1,9 @@
 import numpy as np
 import torch
-from ..layer import Layer
-from ...utils.autodiff import Value
+from layers.layer import Layer
+from utils.autodiff import Value
 
-class Dropout(Layer):
+class DropoutLayer(Layer):
     def __init__(self, rate, seed=None):
         # Initialize Dropout layer
         super().__init__()
