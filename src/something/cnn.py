@@ -1,24 +1,21 @@
 from model import Model
-class CNN(Model):
+class CNNModel():
     def __init__(self, layers=None):
-        super().__init__(layers)
         self.layers = layers if layers is not None else []
-        self.input_shape = None
+        self.model = Model(layers=self.layers)
 
     def add(self, layer):
-        if self.input_shape is not None:
-            layer.input_shape = self.input_shape
         self.layers.append(layer)
-        self.input_shape = layer.output_shape
+        self.model.add(layer)
 
     def forward(self, x):
         for layer in self.layers:
             x = layer(x)
         return x
-    
+
     def __call__(self, x):
         return self.forward(x)
-    
+
     def load_weights(self, weights_list):
         """
         weights_list: List of tuples matching each layer's weights
