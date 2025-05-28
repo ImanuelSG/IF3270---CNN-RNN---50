@@ -12,40 +12,30 @@ class CNNModel(Model):
         batch_size: int = 32,
         epochs: int = 10,
         lr: float = 0.01,
-        loss_fn : LossFunction =None,
-        verbose: bool = True
+        loss_fn: LossFunction = None,
+        verbose: bool = True,
+        optimizer: str = "adam",
+        seed: int = None,
     ):
         self.layers = layers if layers is not None else []
-
-        # Training configs
         self.batch_size = batch_size
         self.epochs = epochs
         self.lr = lr
         self.loss_fn = loss_fn
         self.verbose = verbose
+        self.optimizer = optimizer
+        self.opt_state = {} if optimizer == "adam" else None
+        self.seed = seed
 
-    def add(self, layer):
-        self.layers.append(layer)
+    def fit(self, X, Y, X_val=None, y_val=None):
 
-    def forward(self, x: Value) -> Value:
-        for layer in self.layers:
-            x = layer.forward(x)
-        return x
-
-    def __call__(self, x):
-        return self.forward(x)
-
-    def load_weights(self, weights_list):
-        assert len(weights_list) == len(self.layers)
-        for layer, weights in zip(self.layers, weights_list):
-            if hasattr(layer, 'load_weights'):
-                layer.load_weights(*weights)
-
-    def fit(self, X, Y, X_val = None, y_val = None):
-        """
-        X: torch.Tensor, shape (N, C, H, W)
-        Y: torch.Tensor, shape (N, ...)
-        """
+        if self.seed is not None:
+            random.seed(self.seed)
+            torch.manual_seed(self.seed)
+            torch.cuda.manual_seed_all(self.seed)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+        
         if self.loss_fn is None:
             raise ValueError("loss_fn must be provided at model initialization")
 
@@ -57,7 +47,18 @@ class CNNModel(Model):
             if y_val is not None:
                 y_val = torch.nn.functional.one_hot(y_val.data.to(torch.long), num_classes=num_classes)
 
-        for epoch in range(1):
+        if self.optimizer == "adam":
+            for layer in self.layers:
+                for param in layer.get_parameters():
+                    if param not in self.opt_state:
+                        
+                        self.opt_state[param] = {
+                            'm': torch.zeros_like(param.data),
+                            'v': torch.zeros_like(param.data),
+                            't': 0
+                        }
+
+        for epoch in range(self.epochs):
             indices = list(range(N))
             random.shuffle(indices)
             total_loss = 0
@@ -70,8 +71,6 @@ class CNNModel(Model):
                 y_batch = Y.data[batch_indices]
 
                 x_val = Value(x_batch, requires_grad=True)
-                
-                
                 y_pred = self.forward(x_val)
                 loss = self.loss_fn(y_pred, y_batch)
 
@@ -83,37 +82,32 @@ class CNNModel(Model):
                         if param.requires_grad and param.grad is not None:
                             if self.optimizer == "sgd":
                                 param.data -= self.lr * param.grad
+
                             elif self.optimizer == "adam":
                                 state = self.opt_state[param]
                                 state['t'] += 1
                                 t = state['t']
+                                beta1 = 0.9
+                                beta2 = 0.999
+                                eps = 1e-8
 
-                                # Update biased first moment estimate
-                                state['m'] = 0.9 * state['m'] + 0.1 * param.grad
-                                # Update biased second raw moment estimate
-                                state['v'] = 0.999 * state['v'] + 0.001 * (param.grad ** 2)
+                                state['m'] = beta1 * state['m'] + (1 - beta1) * param.grad
+                                state['v'] = beta2 * state['v'] + (1 - beta2) * (param.grad ** 2)
 
-                                # Compute bias-corrected first and second moment
-                                m_hat = state['m'] / (1 - 0.9 ** t)
-                                v_hat = state['v'] / (1 - 0.999 ** t)
+                                m_hat = state['m'] / (1 - beta1 ** t)
+                                v_hat = state['v'] / (1 - beta2 ** t)
 
-                                # Update parameters
-                                param.data -= self.lr * m_hat / (torch.sqrt(v_hat) + 1e-8)
+                                param.data -= self.lr * m_hat / (torch.sqrt(v_hat) + eps)
 
                             # Clear gradients
                             param.grad = torch.zeros_like(param.grad)
-                            
 
-            avg_loss = total_loss
             if self.verbose:
-                print(f"Epoch {epoch + 1}/{self.epochs} - Loss: {avg_loss:.4f}")
-                
+                print(f"Epoch {epoch + 1}/{self.epochs} - Loss: {total_loss:.4f}")
+
     def predict(self, X):
-        """
-        X: torch.Tensor, shape (N, C, H, W)
-        """
+
+       
         x_val = Value(X, requires_grad=False)
         y_pred = self.forward(x_val)
-        return y_pred.data
-    
-    # def load_weights
+        return y_pred

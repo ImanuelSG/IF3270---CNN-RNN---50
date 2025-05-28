@@ -1,6 +1,8 @@
 from src.layers.layer import Layer
 from src.utils.autodiff import Value
 from src.utils.initialize_weights import initialize_weights
+import torch
+import numpy as np
 
 class DenseLayer(Layer):
     ALLOWED_ACTIVATIONS = {"linear", "relu", "sigmoid", "tanh", "softmax", 'elu', "leaky_relu"}
@@ -32,10 +34,14 @@ class DenseLayer(Layer):
             raise ValueError("Initialization method must be provided")
 
         weight_shape = (self.output_shape, input_dim)
-        self.weights = initialize_weights(weight_shape, self.init_method)
+        weight_tensor = torch.empty(weight_shape, dtype=torch.float32)
+        self.weights = initialize_weights(weight_tensor, self.init_method)
+
+
 
         bias_shape = (self.output_shape,)
-        self.bias = initialize_weights(bias_shape, "zeros")
+        bias_tensor = torch.empty(bias_shape, dtype=torch.float32)
+        self.bias = initialize_weights(bias_tensor, "zeros")
 
     def forward(self, X: Value):
         
@@ -50,3 +56,15 @@ class DenseLayer(Layer):
 
         activated = getattr(Z, self.activation)()
         return activated
+    
+    def load_weights(self, keras_weights: np.ndarray, keras_biases: np.ndarray = None):
+       
+
+        transposed_weights = keras_weights.T  # (output_dim, input_dim)
+
+        self.weights = Value(torch.tensor(transposed_weights, dtype=torch.float32), requires_grad=True)
+        
+        if keras_biases is not None:
+            self.bias = Value(torch.tensor(keras_biases, dtype=torch.float32), requires_grad=True)
+        else:
+            self.bias = Value(torch.zeros(self.output_shape), requires_grad=True)

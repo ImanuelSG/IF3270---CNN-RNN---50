@@ -1,45 +1,50 @@
-import tensorflow as tf
 from tensorflow.keras import layers, models
-from sklearn.model_selection import train_test_split
 
-(x_train_full, y_train_full), (x_test, y_test) = tf.keras.datasets.cifar10.load_data()
+def final_cnn_model(input_shape=(32, 32, 3), num_classes=10):
+    model = models.Sequential()
 
-x_train_full = x_train_full.astype("float32") / 255.0
-x_test = x_test.astype("float32") / 255.0
+    # Block 1: Conv + Conv + MaxPool
+    model.add(layers.Conv2D(64, (3, 3), activation='relu', padding='same', input_shape=input_shape))
+    model.add(layers.Conv2D(64, (3, 3), activation='relu', padding='same'))
+    model.add(layers.MaxPooling2D(pool_size=(2, 2)))
 
+    # Block 2: Conv + Conv + MaxPool
+    model.add(layers.Conv2D(128, (3, 3), activation='relu', padding='same'))
+    model.add(layers.Conv2D(128, (3, 3), activation='relu', padding='same'))
+    model.add(layers.MaxPooling2D(pool_size=(2, 2)))
 
-x_train, x_val, y_train, y_val = train_test_split(
-    x_train_full, y_train_full, test_size=0.2, random_state=42
-)
+    # Block 3: Conv + Conv + MaxPool
+    model.add(layers.Conv2D(256, (3, 3), activation='relu', padding='same'))
+    model.add(layers.Conv2D(256, (3, 3), activation='relu', padding='same'))
+    model.add(layers.MaxPooling2D(pool_size=(2, 2)))
 
-model = models.Sequential([
-    layers.Conv2D(96, (5, 5), activation='relu', padding='same', input_shape=(32, 32, 3)),
-    layers.MaxPooling2D(pool_size=(2, 2), strides=2),
+    # Flatten + Dense layers
+    model.add(layers.Flatten())
+    model.add(layers.Dense(512, activation='relu'))
+    model.add(layers.Dense(num_classes, activation='softmax'))  # final softmax for classification
 
-    layers.Conv2D(96, (5, 5), activation='relu', padding='same'),
-    layers.MaxPooling2D(pool_size=(2, 2), strides=2),
+    model.compile(
+        optimizer='adam',
+        loss='sparse_categorical_crossentropy',
+        metrics=['accuracy']
+    )
 
-    layers.Conv2D(80, (5, 5), activation='relu', padding='same'),
-    layers.Conv2D(64, (5, 5), activation='relu', padding='same'),
-    layers.Conv2D(64, (5, 5), activation='relu', padding='same'),
-    layers.Conv2D(96, (5, 5), activation='relu', padding='same'),
-
-    layers.Flatten(),
-    layers.Dense(256, activation='relu'),
-    layers.Dense(10)  # No activation for logits (from_logits=True used below)
-])
-
-model.compile(optimizer='adam',
-              loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-              metrics=['accuracy'])
-
-# Train model
+    return model
+    
+model = final_cnn_model()
 history = model.fit(
     x_train, y_train,
-    epochs=10,
-    validation_data=(x_val, y_val)
+    epochs=15,
+    validation_data=(x_val, y_val),
+    batch_size=64,
+    verbose=2
 )
 
-# Evaluate on test set
-test_loss, test_acc = model.evaluate(x_test, y_test, verbose=2)
-print(f"\nTest accuracy: {test_acc:.4f}")
+# Plot Loss
+plot_history(history)
+
+# 5. Evaluate on Test Set
+y_pred_probs = model.predict(x_test)
+y_pred = np.argmax(y_pred_probs, axis=1)
+macro_f1 = f1_score(y_test, y_pred, average='macro')
+print(f"\n📊 Macro F1-Score on Test Set: {macro_f1:.4f}")

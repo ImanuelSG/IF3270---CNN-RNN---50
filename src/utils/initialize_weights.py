@@ -1,11 +1,10 @@
 import torch
 import torch.nn.init as init
-from utils.autodiff import Value
+from src.utils.autodiff import Value
 
 def initialize_weights(weight, initializer='normal', seed=None, wrap=True):   
     if seed is not None:
         torch.manual_seed(seed)
-
     if initializer == 'uniform':
         init.uniform_(weight, a=-0.1, b=0.1)
     elif initializer == 'normal':

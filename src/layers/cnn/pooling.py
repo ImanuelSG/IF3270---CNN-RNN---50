@@ -70,7 +70,7 @@ class Pooling(Layer):
                 for oh in range(H_out):
                     for ow in range(W_out):
                         final_output.append(output[b][c][oh][ow])
-
+        
 
         out_tensor = torch.stack([v.data for v in final_output])
         shape = (B, C, H_out, W_out)

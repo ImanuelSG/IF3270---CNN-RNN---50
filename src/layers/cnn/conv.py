@@ -21,10 +21,7 @@ class Conv2D(Layer):
         self.bias = None
         self.input_channels = None
     
-    def _initialize_parameters(self, input_channels):
-        if self.initialized:
-            return
-            
+    def _initialize_parameters(self, input_channels):  
         self.input_channels = input_channels
         
         weight_shape = (self.filters, input_channels, self.kernel_size[0], self.kernel_size[1])
