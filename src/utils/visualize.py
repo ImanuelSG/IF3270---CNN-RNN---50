@@ -10,13 +10,28 @@ def visualize_loss(epochs, loss, label, title, training=True):
     plt.xlabel('Epoch')
     if training:
         plt.ylabel('Training Loss')
-    else:
+    elif training is False:
         plt.ylabel('Validation Loss')
+    else:
+        plt.ylabel('Loss')
     plt.title(title)
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
     plt.show()
+
+def visualize_train_val_loss(train_loss, val_loss, epochs, label=['Train Loss', 'Validation Loss'], title='Training and Validation Loss'):
+    """
+    Plot training and validation loss over epochs.
+
+    Parameters:
+    - train_loss: List or array of training loss values.
+    - val_loss: List or array of validation loss values.
+    - epochs: List or array of epoch numbers.
+    - label: List of labels for the two curves.
+    - title: Title of the chart.
+    """
+    visualize_loss(epochs, [train_loss, val_loss], label, title, training=None)
 
 def visualize_f1(data1, data2, labels, label1='Keras', label2='Scratch', ylabel='f1_score', title='Comparison'):
     import matplotlib.pyplot as plt
