@@ -20,11 +20,12 @@ class DenseLayer(Layer):
         self.bias: Value = initialize_weights(torch.zeros(self.output_shape, 1), "zeros")
 
 
-    def load_weights(self, weights, bias):
+    def load_weights(self, weights):
         """
         Load weights for the dense layer.
         weights: Tuple of tensors (weights, bias)
         """
+        weights, bias = weights
         self.weights = Value(torch.tensor(weights.T, dtype=torch.float32), requires_grad=True)
         self.bias = Value(torch.tensor(bias, dtype=torch.float32), requires_grad=True)
         return self
