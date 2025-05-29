@@ -27,5 +27,5 @@ def evaluate_model(model, test, test_labels):
 
     # 4. Hitung F1 score (macro average)
     f1 = f1_score(y_true, y_pred, average='macro')
-
     print(f"Macro F1 Score: {f1:.4f}")
+    return f1
