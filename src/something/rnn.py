@@ -50,10 +50,9 @@ class RNN(Model):
     
     def load_weights(self, weights_list):
         """
-        weights_list: List of tuples matching each layer's weights
-        Example: [(W1, b1), (W2, b2), ...]
+        weights_list: List of each layer's weights
+        Example: [W1, b1, W2, b2, ...]
         """
-        assert len(weights_list) == len(self.layers)
         for layer, weights in zip(self.layers, weights_list):
             if hasattr(layer, 'load_weights'):
-                layer.load_weights(*weights)
+                layer.load_weights(weights)

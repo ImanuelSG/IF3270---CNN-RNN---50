@@ -1,3 +1,4 @@
+from utils.autodiff import Value
 class Layer:
     def forward(self):
         self._id = None 

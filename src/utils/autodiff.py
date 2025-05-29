@@ -327,6 +327,20 @@ class Value:
 
         out._backward = _backward
         return out
+    
+    def unsqueeze(self, dim):
+        out = Value(self.data.unsqueeze(dim), requires_grad=self.requires_grad, _children=(self,), _op=f"unsqueeze_{dim}")
+
+        def _backward():
+            if not out.requires_grad:
+                return
+            if self.requires_grad:
+                if self.grad is None:
+                    self.grad = torch.zeros_like(self.data)
+                self.grad += out.grad.squeeze(dim)
+
+        out._backward = _backward
+        return out
 
 
     def backward(self):

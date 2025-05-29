@@ -31,6 +31,8 @@ class EmbeddingLayer(Layer):
         Load weights for the embedding layer.
         weights: torch.Tensor of shape (vocab_size, embedding_dim)
         """
+        assert len(weights) == 1
+        weights = weights[0] if isinstance(weights, (list, tuple)) else weights
         assert weights.shape == (self.vocab_size, self.embedding_dim), "Weights shape mismatch"
         if isinstance(self.weights, Value):
             self.weights.data = torch.tensor(weights, dtype=torch.float32)
