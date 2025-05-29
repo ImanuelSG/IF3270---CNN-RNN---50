@@ -63,16 +63,24 @@ class BidirectionalRNN(Layer):
         # print(x)
         # print(reversed_x)
 
-        # Reverse backward output to match time order
-        output_b = Value(output_b.data.flip(dims=[1]))
+        # # Reverse backward output to match time order
+        # output_b = Value(output_b.data.flip(dims=[1]))
 
-        # Concatenate along the last dimension (units)
-        merged = Value.cat([output_f, output_b], dim=2)  # (batch, seq_len, 2 * units)
+        # # Concatenate along the last dimension (units)
+        # merged = Value.cat([output_f, output_b], dim=2)  # (batch, seq_len, 2 * units)
 
         if self.return_sequences:
+            # Reverse backward output to match time order
+            output_b = Value(output_b.data.flip(dims=[1]))
+
+            # Concatenate along the last dimension (units)
+            merged = Value.cat([output_f, output_b], dim=2)
             return merged
         else:
-            return merged[:, -1, :]  # Return last timestep (batch, 2 * units)
+            return Value.cat(
+                [Value(output_f.data[:, -1, :]), Value(output_b.data[:, -1, :])], dim=1
+            )  
+        # Return last timestep (batch, 2 * units)
 
     def load_weights(self, weights):
         """
