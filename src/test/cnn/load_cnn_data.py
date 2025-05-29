@@ -50,5 +50,14 @@ def load_cifar10_custom(data_dir="./cifar10"):
         y_train.append(labels)
     x_train = np.concatenate(x_train)
     y_train = np.concatenate(y_train)
+
     x_test, y_test = load_batch(os.path.join(path, "test_batch"))
+
+    # Normalize pixel values to [0, 1]
+    x_train = x_train.astype(np.float64) / 255.0
+    x_test = x_test.astype(np.float64) / 255.0
+
+    y_train = y_train.squeeze()
+    y_test = y_test.squeeze()
+
     return (x_train, y_train), (x_test, y_test)

@@ -1,77 +1,62 @@
-from src.models.cnn import CNNModel
-from src.layers.cnn.conv import Conv2D
-from src.layers.cnn.dense import DenseLayer
-from src.layers.cnn.pooling import Pooling
-from src.layers.cnn.flatten import Flatten
+from src.models.cnn_normal import CNNModel 
+from src.layers.cnn.usenumpy.conv import Conv2D
+from src.layers.cnn.usenumpy.dense import DenseLayer
+from src.layers.cnn.usenumpy.pooling import Pooling
+from src.layers.cnn.usenumpy.flatten import Flatten
 from src.utils.autodiff import Value
-from src.utils.loss import CategoricalCrossEntropyLoss
+from src.utils.manualloss import CategoricalCrossEntropyLoss
+import numpy as np
 import os
 import sys
 
-
 model = CNNModel(loss_fn=CategoricalCrossEntropyLoss(), epochs=10)
+
+# Create layers
 layer1 = Conv2D(filters=2, kernel_size=2, padding=0, activation='relu')
 layer2 = Pooling(pool_size=3, pool_type='max', padding=0, strides=1)
 layer3 = Flatten()
-layer4 = DenseLayer(activation='relu', output_shape=2)
-layer5 = DenseLayer(activation='softmax', output_shape=5)
-weight1 = [
-    [
-    [[-8,1], [4,7]]
-    
-    ],
-    [[[2,-4], [-3,5]]]
-    ]
-biases = [0,0]
-weight_4 = [[-1,7],[3,-8]]
-bias_4 = [0,0]
-weight_5 = [[0.01,0.05],[0.02,0.04],[0.03,0.03],[0.04,0.02],[0.05,0.01]]
+layer4 = DenseLayer(output_shape=2, activation='relu')
+layer5 = DenseLayer(output_shape=5, activation='softmax')
 
-bias_5 = [0,0,0,0,0]
-input_val = [
-    [
-        [[2,1,3,5],
-         [4,5,7,2],
-         [3,2,8,2],
-         [1,6,3,7]
-         ]
-    ]
-]
-layer1.weights = Value(weight1, requires_grad=True)
-layer1.bias = Value(biases, requires_grad=True)
-layer1.initialized = True
-layer4.weights = Value(weight_4, requires_grad=True)
-layer4.bias = Value(bias_4, requires_grad=True)
-layer5.weights = Value(weight_5, requires_grad=True)
-layer5.bias = Value(bias_5, requires_grad=True)
+# Assign predefined weights (as regular Python lists or NumPy arrays)
+layer1.weights = np.array([[
+    [[-8, 1], [4, 7]]
+], [
+    [[2, -4], [-3, 5]]
+]], dtype=np.float64)
+layer1.bias = np.array([0, 0], dtype=np.float64)
 
+layer4.weights = np.array([[-1, 7], [3, -8]], dtype=np.float64)
+layer4.bias = np.array([0, 0], dtype=np.float64)
+
+layer5.weights = np.array([
+    [0.01, 0.05],
+    [0.02, 0.04],
+    [0.03, 0.03],
+    [0.04, 0.02],
+    [0.05, 0.01]
+], dtype=np.float64)
+layer5.bias =np.array( [0, 0, 0, 0, 0], dtype=np.float64)
+
+# Add layers to the model
 model.add(layer1)
 model.add(layer2)
 model.add(layer3)
 model.add(layer4)
 model.add(layer5)
-# model.forward(Value(input_val, requires_grad=False))
-# print(layer1.forward(Value(input_val, requires_grad=False)))
-model.fit(
-    X=Value(input_val, requires_grad=False),
-    Y=Value([0], requires_grad=False)
-)
+
+# Prepare input and label (plain Python nested lists or NumPy arrays)
+input_val =np.array( [[[
+    [2, 1, 3, 5],
+    [4, 5, 7, 2],
+    [3, 2, 8, 2],
+    [1, 6, 3, 7]
+]]], dtype=np.float64)
+target = np.array([0], dtype=np.float64)  # class label
+
+model.fit(X=input_val, Y=target)
 
 
-from tensorflow.keras import layers, models, optimizers, losses
-import numpy as np
-
-
-input_val = np.array([
-    [
-        [[2, 1, 3, 5],
-         [4, 5, 7, 2],
-         [3, 2, 8, 2],
-         [1, 6, 3, 7]]
-    ]
-], dtype=np.float32).transpose(0, 2, 3, 1)  # reshape to (1, 4, 4, 1) for Keras
-
-y_train = np.array([0])  # class label
 
 from tensorflow.keras import layers, models, optimizers, losses
 import numpy as np

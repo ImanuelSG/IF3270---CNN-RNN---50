@@ -11,6 +11,8 @@ class Flatten(Layer):
         # Save the original shape for potential backward reshape if needed
         self.input_shape = x.data.shape  # (B, C, H, W) or any shape
 
+
+
         B = self.input_shape[0]
         flattened_size = 1
         for dim in self.input_shape[1:]:

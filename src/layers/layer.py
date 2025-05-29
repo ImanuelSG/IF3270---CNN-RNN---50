@@ -1,14 +1,18 @@
-from src.utils.autodiff import Value
 class Layer:
-    def forward(self, x : Value):
+    def forward(self):
+        self._id = None 
         raise NotImplementedError("Forward pass not implemented.")
 
     def get_parameters(self):
-        """
-        Returns the parameters of the layer.
-        This method should be overridden by subclasses to return the layer's parameters.
-        """
-        raise NotImplementedError("get_parameters not implemented.")
+        params = []
+
+        if hasattr(self, "weights") and self.weights is not None:
+            params.append((f"{self._id}_weights", self.weights, self.grad_weights))
+
+        if hasattr(self, "bias") and self.bias is not None:
+            params.append((f"{self._id}_bias", self.bias, self.grad_bias))
+
+        return params
     
     def backward(self, x):
         raise NotImplementedError("Backward pass not implemented.")

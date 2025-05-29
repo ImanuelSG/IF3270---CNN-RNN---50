@@ -15,7 +15,7 @@ class CNNModel(Model):
         loss_fn: LossFunction = None,
         verbose: bool = True,
         optimizer: str = "adam",
-        seed: int = None,
+        seed: int = 42,
     ):
         self.layers = layers if layers is not None else []
         self.batch_size = batch_size

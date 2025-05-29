@@ -6,6 +6,7 @@ class Model:
         self.layers.append(layer)
 
     def forward(self, x):
+        count = 0 
         for layer in self.layers:
             x = layer(x) 
         return x

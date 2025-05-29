@@ -44,28 +44,40 @@ class Conv2D(Layer):
         
         padding = (self.padding[1], self.padding[1], self.padding[0], self.padding[0])
         padded_data = torch.nn.functional.pad(x.data, padding, mode='constant', value=0)
+
+        out = Value(padded_data, requires_grad=x.requires_grad, _children=(x,), _op="pad")
+
+        def _backward():
+            if out.grad is None:
+                return
+            grad_tensor = out.grad
+            x.grad += grad_tensor[:, :, self.padding[0]:-self.padding[0], self.padding[1]:-self.padding[1]]
         
-        return Value(padded_data, requires_grad=x.requires_grad, _children=(x,), _op="pad")
+        out._backward = _backward
+        
+        return out
     
-    def forward(self, x : Value):
+    def forward(self, x: Value):
         batch_size, input_channels, input_height, input_width = x.data.shape
-        
+
         if self.weights is None or self.bias is None:
             self._initialize_parameters(input_channels)
-        
+
         x_padded = self._pad_input(x) if any(self.padding) else x
-        
+
         padded_height, padded_width = x_padded.data.shape[2], x_padded.data.shape[3]
         output_height, output_width = self._calculate_output_size(padded_height, padded_width)
-        
-        output = []
+
+        # Preallocate output value matrix
+        output_values = [[[[
+            None for _ in range(output_width)
+        ] for _ in range(output_height)]
+        for _ in range(self.filters)]
+        for _ in range(batch_size)]
 
         for b in range(batch_size):
-            batch_out = []
             for f in range(self.filters):
-                filter_out = []
                 for oh in range(output_height):
-                    row_out = []
                     for ow in range(output_width):
                         h_start = oh * self.strides[0]
                         h_end = h_start + self.kernel_size[0]
@@ -74,37 +86,28 @@ class Conv2D(Layer):
 
                         conv_sum = Value(0.0)
                         for c in range(input_channels):
-                            input_patch = x_padded[b][c][h_start:h_end, w_start:w_end]
+                            input_patch = x_padded.data[b, c, h_start:h_end, w_start:w_end]
+                            input_value = x_padded[b][c][h_start:h_end, w_start:w_end]  # This is the Value object
                             kernel_patch = self.weights[f][c]
-                            conv_sum = conv_sum + (input_patch * kernel_patch).sum()
+
+                            conv_sum += (input_value * kernel_patch).sum()
+
                         if self.use_bias:
                             conv_sum += self.bias[f]
-                        row_out.append(conv_sum)
-                    filter_out.append(row_out)
-                batch_out.append(filter_out)
-            output.append(batch_out)
 
+                        output_values[b][f][oh][ow] = conv_sum
+
+        # Preallocate tensor and Value list for autograd
+        out_tensor = torch.empty((batch_size, self.filters, output_height, output_width), dtype=torch.float32)
         final_output = []
+
         for b in range(batch_size):
             for f in range(self.filters):
                 for i in range(output_height):
                     for j in range(output_width):
-                        final_output.append(output[b][f][i][j])
-        
-        # def print_child(v, max_depth=3):
-        #     if max_depth < 0:
-        #         return
-        #     if (v._prev is not None):
-        #         print(f"Child: {v._prev}, Op: {v._op}, Data: {v.data} at depth {max_depth}")
-        #         for child in v._prev:
-        #             print_child(child, max_depth - 1)
-        
-        # for v in final_output:
-        #     print_child(v)
-
-        out_tensor = torch.stack([v.data for v in final_output])
-        shape = (batch_size, self.filters, output_height, output_width)
-        out_tensor = out_tensor.view(shape)
+                        v = output_values[b][f][i][j]
+                        out_tensor[b, f, i, j] = v.data
+                        final_output.append(v)
 
         out = Value(out_tensor, requires_grad=True, _children=tuple(final_output), _op="conv2d_output")
 
@@ -122,17 +125,14 @@ class Conv2D(Layer):
 
         out._backward = _backward
 
-
         if self.activation:
             return getattr(out, self.activation)()
 
         return out
-    
+
     def get_parameters(self):
         """Return all trainable parameters"""
         params = [self.weights]
         if self.use_bias:
             params.append(self.bias)
         return params
-    def backward(self, x):
-        return super().backward(x)

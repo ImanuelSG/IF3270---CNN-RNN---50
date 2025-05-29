@@ -19,21 +19,12 @@ class DenseLayer(Layer):
         self.weights: Value = initialize_weights(torch.empty(self.output_shape, input_shape), self.init_method)
         self.bias: Value = initialize_weights(torch.zeros(self.output_shape, 1), "zeros")
 
-    
-    def get_parameters(self):
-        params = []
-        if self.weights is not None:
-            params.append(self.weights)
-        if self.bias is not None:
-            params.append(self.bias)
-        return params
 
-    def load_weights(self, weights):
+    def load_weights(self, weights, bias):
         """
         Load weights for the dense layer.
         weights: Tuple of tensors (weights, bias)
         """
-        weights, bias = weights
         self.weights = Value(torch.tensor(weights.T, dtype=torch.float32), requires_grad=True)
         self.bias = Value(torch.tensor(bias, dtype=torch.float32), requires_grad=True)
         return self
