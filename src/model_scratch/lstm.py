@@ -29,6 +29,7 @@ class LSTM(Model):
             yield X[i:i + batch_size]
             
     def predict(self, x):
+        self.eval()
         outputs = []
         print(f"Predicting with batch size: {self.batch_size}, input shape: {x.shape}")
         for batch_X in self.batch_generator(x, self.batch_size):

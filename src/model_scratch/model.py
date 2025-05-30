@@ -12,6 +12,20 @@ class Model:
 
     def __call__(self, x):
         return self.forward(x)
+    
+    def train(self):
+        """Set the model and all its layers to training mode"""
+        for layer in self.layers:
+            if hasattr(layer, 'train'):
+                layer.train()
+        return self
+    
+    def eval(self):
+        """Set the model and all its layers to evaluation mode"""
+        for layer in self.layers:
+            if hasattr(layer, 'eval'):
+                layer.eval()
+        return self
 
     def load_weights(self, weights_list):
         """

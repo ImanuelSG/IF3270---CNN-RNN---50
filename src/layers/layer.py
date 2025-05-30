@@ -1,5 +1,8 @@
 from utils.autodiff import Value
 class Layer:
+    def __init__(self):
+        self.training = False
+        
     def forward(self):
         self._id = None 
         raise NotImplementedError("Forward pass not implemented.")
@@ -17,6 +20,14 @@ class Layer:
     
     def backward(self, x):
         raise NotImplementedError("Backward pass not implemented.")
+
+    def train(self):
+        self.training = True
+        return self
+
+    def eval(self):
+        self.training = False
+        return self
 
     def __call__(self, x):
         return self.forward(x)

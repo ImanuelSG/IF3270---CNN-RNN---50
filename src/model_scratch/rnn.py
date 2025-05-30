@@ -30,6 +30,7 @@ class RNN(Model):
             yield X[i:i + batch_size]
             
     def predict(self, x):
+        self.eval()
         outputs = []
         # print(f"Predicting with batch size: {self.batch_size}, sequance length: {x.shape[1] if len(x.shape) > 1 else 1}, feature size: {x.shape[2] if len(x.shape) > 2 else 1}")
         for batch_X in self.batch_generator(x, self.batch_size):
