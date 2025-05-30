@@ -4,9 +4,15 @@ from utils.initialize_weights import initialize_weights
 from layers.layer import Layer
 
 class UnidirectionalLSTM(Layer):
-    def __init__(self, units, input_dim=None, batch_size=None, activation="tanh",
-                 kernel_initializer='glorot_uniform', recurrent_initializer='orthogonal',
-                 bias_initializer='zeros', return_sequences=False):
+    def __init__(
+        self, 
+        units, 
+        input_dim=None, 
+        batch_size=None, 
+        activation="tanh",
+        kernel_initializer='glorot_uniform', recurrent_initializer='orthogonal',
+        bias_initializer='zeros', return_sequences=False
+    ):
         super().__init__()
         self.units = units
         self.input_dim = input_dim
@@ -18,25 +24,25 @@ class UnidirectionalLSTM(Layer):
         self.recurrent_initializer = recurrent_initializer
         self.bias_initializer = bias_initializer
 
-        # Weight matrices for input transformations
-        self.Wxi = None  # Input to input gate
-        self.Wxf = None  # Input to forget gate
-        self.Wxo = None  # Input to output gate
-        self.Wxc = None  # Input to candidate values
+        # input weight matrix
+        self.Wxi = None  # input gate
+        self.Wxf = None  # forget gate
+        self.Wxo = None  # output gate
+        self.Wxc = None  # candidate values
 
-        # Weight matrices for hidden state transformations
-        self.Whi = None  # Hidden to input gate
-        self.Whf = None  # Hidden to forget gate
-        self.Who = None  # Hidden to output gate
-        self.Whc = None  # Hidden to candidate values
+        # hidden weight matrix
+        self.Whi = None  # input gate
+        self.Whf = None  # forget gate
+        self.Who = None  # output gate
+        self.Whc = None  # candidate values
 
-        # Bias vectors
-        self.bi = None   # Input gate bias
-        self.bf = None   # Forget gate bias
-        self.bo = None   # Output gate bias
-        self.bc = None   # Candidate bias
+        # Bias 
+        self.bi = None   # input gate bias
+        self.bf = None   # forget gate bias
+        self.bo = None   # futput gate bias
+        self.bc = None   # candidate bias
 
-        # Initial states
+        # Initial states h0 dan c0
         self.h0 = None   # Initial hidden state
         self.c0 = None   # Initial cell state
 
@@ -47,27 +53,25 @@ class UnidirectionalLSTM(Layer):
             self.init_states(batch_size)
 
     def build(self, input_dim):
-        """Initialize weights when input_dim is known"""
-        # Input weight matrices
+        # Input weight matrix
         self.Wxi = initialize_weights(torch.empty(self.units, input_dim), self.kernel_initializer)
         self.Wxf = initialize_weights(torch.empty(self.units, input_dim), self.kernel_initializer)
         self.Wxo = initialize_weights(torch.empty(self.units, input_dim), self.kernel_initializer)
         self.Wxc = initialize_weights(torch.empty(self.units, input_dim), self.kernel_initializer)
 
-        # Hidden weight matrices
+        # Hidden weight matrix
         self.Whi = initialize_weights(torch.empty(self.units, self.units), self.recurrent_initializer)
         self.Whf = initialize_weights(torch.empty(self.units, self.units), self.recurrent_initializer)
         self.Who = initialize_weights(torch.empty(self.units, self.units), self.recurrent_initializer)
         self.Whc = initialize_weights(torch.empty(self.units, self.units), self.recurrent_initializer)
 
-        # Bias vectors
+        # Bias vector
         self.bi = initialize_weights(torch.zeros(self.units, 1), self.bias_initializer)
-        self.bf = initialize_weights(torch.ones(self.units, 1), self.bias_initializer)  # Initialize forget gate bias to 1
+        self.bf = initialize_weights(torch.zeros(self.units, 1), self.bias_initializer)  # Initialize forget gate bias to 1
         self.bo = initialize_weights(torch.zeros(self.units, 1), self.bias_initializer)
         self.bc = initialize_weights(torch.zeros(self.units, 1), self.bias_initializer)
 
     def init_states(self, batch_size):
-        """Initialize hidden and cell state tensors"""
         self.batch_size = batch_size
         self.h0 = Value(torch.zeros(batch_size, self.units))
         self.c0 = Value(torch.zeros(batch_size, self.units))
@@ -86,19 +90,19 @@ class UnidirectionalLSTM(Layer):
         self.outputs = []
 
         for t in range(seq_len):
-            x_t = Value(x.data[:, t])  # shape: (batch_size, feature_size)
+            x_t = Value(x.data[:, t])
             
             # Input gate
-            i_t = (self.Wxi @ x_t.T() + self.Whi @ h.T() + self.bi).sigmoid().T()
+            i_t = (x_t @ self.Wxi.T() + h @ self.Whi.T() + self.bi.T()).sigmoid()
             
             # Forget gate
-            f_t = (self.Wxf @ x_t.T() + self.Whf @ h.T() + self.bf).sigmoid().T()
+            f_t = (x_t @ self.Wxf.T() + h @ self.Whf.T() + self.bf.T()).sigmoid()
             
             # Output gate
-            o_t = (self.Wxo @ x_t.T() + self.Who @ h.T() + self.bo).sigmoid().T()
+            o_t = (x_t @ self.Wxo.T() + h @ self.Who.T() + self.bo.T()).sigmoid()
             
-            # Candidate values
-            c_tilde = (self.Wxc @ x_t.T() + self.Whc @ h.T() + self.bc).tanh().T()
+            # Candidate value
+            c_tilde = (x_t @ self.Wxc.T() + h @ self.Whc.T() + self.bc.T()).tanh()
             
             # Update cell state
             c = f_t * c + i_t * c_tilde
@@ -109,23 +113,15 @@ class UnidirectionalLSTM(Layer):
             self.outputs.append(h)
 
         if self.return_sequences:
-            return Value.stack(self.outputs, 1)  # (batch_size, seq_len, units)
+            return Value.cat([v.unsqueeze(1) for v in self.outputs], dim=1)  # (batch_size, seq_len, units)
         else:
             return self.outputs[-1]  # (batch_size, units)
     
     def load_weights(self, weights):
-        """Load pre-trained weights from TensorFlow LSTM format
-        
-        Args:
-            weights: list of [kernel, recurrent_kernel, bias] from TensorFlow LSTM
-        """
         if len(weights) == 3:
             # TensorFlow LSTM format: [kernel, recurrent_kernel, bias]
             kernel, recurrent_kernel, bias = weights
-            
-            # TensorFlow LSTM gate order: input, forget, cell, output (i, f, c, o)
-            # Split kernel (input_dim, 4*units) into gates
-            kernel = kernel.T  # Transpose to match our convention
+            kernel = kernel.T
             input_dim = kernel.shape[1]
             
             self.Wxi = Value(torch.tensor(kernel[:self.units, :], dtype=torch.float32), requires_grad=True)
@@ -133,13 +129,12 @@ class UnidirectionalLSTM(Layer):
             self.Wxc = Value(torch.tensor(kernel[2*self.units:3*self.units, :], dtype=torch.float32), requires_grad=True)
             self.Wxo = Value(torch.tensor(kernel[3*self.units:4*self.units, :], dtype=torch.float32), requires_grad=True)
             
-            # Split recurrent_kernel (units, 4*units) into gates
-            self.Whi = Value(torch.tensor(recurrent_kernel[:, :self.units], dtype=torch.float32), requires_grad=True)
-            self.Whf = Value(torch.tensor(recurrent_kernel[:, self.units:2*self.units], dtype=torch.float32), requires_grad=True)
-            self.Whc = Value(torch.tensor(recurrent_kernel[:, 2*self.units:3*self.units], dtype=torch.float32), requires_grad=True)
-            self.Who = Value(torch.tensor(recurrent_kernel[:, 3*self.units:4*self.units], dtype=torch.float32), requires_grad=True)
+            recurrent_kernel = recurrent_kernel.T
+            self.Whi = Value(torch.tensor(recurrent_kernel[:self.units, :], dtype=torch.float32), requires_grad=True)
+            self.Whf = Value(torch.tensor(recurrent_kernel[self.units:2*self.units, :], dtype=torch.float32), requires_grad=True)
+            self.Whc = Value(torch.tensor(recurrent_kernel[2*self.units:3*self.units, :], dtype=torch.float32), requires_grad=True)
+            self.Who = Value(torch.tensor(recurrent_kernel[3*self.units:4*self.units, :], dtype=torch.float32), requires_grad=True)
             
-            # Split bias (4*units,) into gates
             self.bi = Value(torch.tensor(bias[:self.units].reshape(-1, 1), dtype=torch.float32), requires_grad=True)
             self.bf = Value(torch.tensor(bias[self.units:2*self.units].reshape(-1, 1), dtype=torch.float32), requires_grad=True)
             self.bc = Value(torch.tensor(bias[2*self.units:3*self.units].reshape(-1, 1), dtype=torch.float32), requires_grad=True)
@@ -169,7 +164,6 @@ class UnidirectionalLSTM(Layer):
         return self
 
     def get_parameters(self):
-        """Return all trainable parameters"""
         parameters = []
         if self.Wxi is not None:
             parameters.extend([

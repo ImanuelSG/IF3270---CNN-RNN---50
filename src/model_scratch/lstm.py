@@ -33,10 +33,10 @@ class LSTM(Model):
         print(f"Predicting with batch size: {self.batch_size}, input shape: {x.shape}")
         for batch_X in self.batch_generator(x, self.batch_size):
             if len(self.layers) > 0 and isinstance(self.layers[0], EmbeddingLayer):
-                print("Using EmbeddingLayer, converting indices to long tensor")
+                # print("Using EmbeddingLayer, converting indices to long tensor")
                 batch_X_value = torch.tensor(batch_X, dtype=torch.long)
             else:
-                print("Using non-EmbeddingLayer, converting to float tensor")
+                # print("Using non-EmbeddingLayer, converting to float tensor")
                 batch_tensor = torch.tensor(batch_X, dtype=torch.float32)
                 batch_X_value = Value(batch_tensor, requires_grad=False)
             out = self.forward(batch_X_value)
@@ -51,5 +51,5 @@ class LSTM(Model):
 
     def load_weights(self, weights_list):
         for layer, weights in zip(self.layers, weights_list):
-            layer.load_weights(weights)
-        return self
+            if hasattr(layer, 'load_weights'):
+                layer.load_weights(weights)
