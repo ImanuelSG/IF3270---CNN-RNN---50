@@ -1,0 +1,24 @@
+# Core Machine Learning and Deep Learning
+torch>=1.9.0
+tensorflow>=2.8.0
+scikit-learn>=1.0.0
+numpy>=1.21.0
+pandas>=1.3.0
+
+# Data Visualization
+matplotlib>=3.4.0
+
+# Progress bars and utilities
+tqdm>=4.62.0
+
+# GUI framework (for some visualization features)
+tkinter
+
+# Network analysis (for neural network visualization)
+networkx>=2.6
+
+# HDF5 file format support (for model weights)
+h5py>=3.1.0
+
+# Additional utilities that might be needed
+pickle-mixin
