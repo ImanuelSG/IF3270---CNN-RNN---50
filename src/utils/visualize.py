@@ -65,5 +65,3 @@ def visualize_f1(data1, data2, labels, label1='Keras', label2='Scratch', ylabel=
 
     plt.tight_layout()
     plt.show()
-
-visualize_f1([0.8, 0.85, 0.9], [0.8, 0.85, 0.9], ['Model A', 'Model B', 'Model C'], label1='Keras', label2='Scratch', ylabel='F1 Score', title='F1 Score Comparison')
