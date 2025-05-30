@@ -8,7 +8,8 @@ This project implements **Convolutional Neural Network (CNN), Recurrent Neural N
 - CNN Implementation from scratch, with Forward and Backward Propagation ✅
 - RNN Implementation from scratch, with Forward Propagation ✅
 - LSTM Implementation from scratch, with Forward Propagation ✅
-- The implementation of the forward and backward propagations are made to have the same results to Keras' implemetation. ✅
+- The implementation of the forward and backward propagations are made to have the same results to Keras' implemetation ✅
+- Batch Size Implementation for CNN, RNN, and LSTM ✅
 
 ## Project Structure
 ```
