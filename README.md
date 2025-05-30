@@ -14,7 +14,10 @@ This project implements **Convolutional Neural Network (CNN), Recurrent Neural N
 ```
 .
 ├── README.md
+├── doc
+│   └── Tubes2_IF3270_CNN_RNN_LSTM.pdf
 ├── main.py
+├── requirements.txt
 └── src
     ├── __init__.py
     ├── data
